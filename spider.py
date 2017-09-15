@@ -1,3 +1,4 @@
+import json
 from urllib.parse import urlencode
 from requests.exceptions import RequestException
 import requests
@@ -25,9 +26,19 @@ def get_page_index(offset, keyword):
         print('请求索引页出错')
         return None
 
+#解析索引页，通过索引页的json拿到详情页的url
+def parse_page_index(html):
+    #把json转换成对象
+    data = json.loads(html)
+    #如果json中有数据，就遍历之，取出详情页的url字段
+    if data and 'data' in data.keys():
+        for item in data.get('data'):
+            yield item.get('article_url')
+
 def main():
     html = get_page_index(0, '杨颖')
-    print(html)
+    for url in parse_page_index(html):
+        print(url)
 
 if __name__ == '__main__':
     main()
