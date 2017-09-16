@@ -1,5 +1,8 @@
 import json
 from urllib.parse import urlencode
+
+import re
+from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 import requests
 
@@ -35,10 +38,38 @@ def parse_page_index(html):
         for item in data.get('data'):
             yield item.get('article_url')
 
+#通过上一步的url解析详情页，拿到详情页信息
+def get_page_detail(url):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.text
+        return None
+    except RequestException:
+        print('请求详情页出错', url)
+        return None
+
+#拿到详情页信息后，解析详情页
+def parse_page_detail(html):
+    #用BS提取html的title
+    soup = BeautifulSoup(html, 'lxml')
+    title = soup.select('title')[0].get_text()
+    print(title)
+    #用正则表达式提取图片链接
+    images_pattern = re.compile('gallery: {(.*?)},', re.S)
+    #匹配
+    result = re.search(images_pattern, html)
+    #判断匹配是否成功
+    if result:
+        print(result.group(1))
+
 def main():
     html = get_page_index(0, '杨颖')
     for url in parse_page_index(html):
-        print(url)
+        html = get_page_detail(url)
+        if html:
+            parse_page_detail(html)
+
 
 if __name__ == '__main__':
     main()
