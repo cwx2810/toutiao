@@ -50,26 +50,36 @@ def get_page_detail(url):
         return None
 
 #拿到详情页信息后，解析详情页
-def parse_page_detail(html):
+def parse_page_detail(html, url):
     #用BS提取html的title
     soup = BeautifulSoup(html, 'lxml')
     title = soup.select('title')[0].get_text()
     print(title)
-    #用正则表达式提取图片链接
-    images_pattern = re.compile('gallery: {(.*?)},', re.S)
+    #用正则表达式提取图片链接，这里用原来的.*?不能匹配换行，而S*可以匹配到换行
+    images_pattern = re.compile('gallery: ([\s\S]*),[\s\S]*siblingList:', re.S)
     #匹配
     result = re.search(images_pattern, html)
     #判断匹配是否成功
     if result:
-        print(result.group(1))
+        #提取json中的sub_images字段
+        data = json.loads(result.group(1))
+        if data and 'sub_images' in data.keys():
+            sub_images = data.get('sub_images')
+            #sub_images本身又是一个键值对的形式的列表，那我们也用列表保存它
+            images = [item.get('url') for item in sub_images]
+            return {
+                'title': title,
+                'url': url,
+                'images': images
+            }
 
 def main():
     html = get_page_index(0, '杨颖')
     for url in parse_page_index(html):
         html = get_page_detail(url)
         if html:
-            parse_page_detail(html)
-
+            result = parse_page_detail(html, url)
+            print(result)
 
 if __name__ == '__main__':
     main()
