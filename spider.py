@@ -2,9 +2,16 @@ import json
 from urllib.parse import urlencode
 
 import re
+
+import pymongo
 from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 import requests
+from config import *
+
+#声明数据库对象，传入地址、名称
+client = pymongo.MongoClient(MONGO_URL)
+db = client[MONGO_DB]
 
 #获取索引页
 def get_page_index(offset, keyword):
@@ -73,13 +80,20 @@ def parse_page_detail(html, url):
                 'images': images
             }
 
+#定义保存到数据库的方法
+def save_to_mongo(result):
+    if db[MONGO_TABLE].insert(result):
+        print('存储到mongoDB成功！', result)
+        return True
+    return False
+
 def main():
     html = get_page_index(0, '杨颖')
     for url in parse_page_index(html):
         html = get_page_detail(url)
         if html:
             result = parse_page_detail(html, url)
-            print(result)
+            save_to_mongo(result)
 
 if __name__ == '__main__':
     main()
