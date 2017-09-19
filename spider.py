@@ -1,8 +1,9 @@
 import json
 from urllib.parse import urlencode
-
+from hashlib import md5
 import re
 
+import os
 import pymongo
 from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
@@ -74,6 +75,7 @@ def parse_page_detail(html, url):
             sub_images = data.get('sub_images')
             #sub_images本身又是一个键值对的形式的列表，那我们也用列表保存它
             images = [item.get('url') for item in sub_images]
+            for image in images:download_image(image)
             return {
                 'title': title,
                 'url': url,
@@ -87,13 +89,35 @@ def save_to_mongo(result):
         return True
     return False
 
+#请求下载页
+def download_image(url):
+    print('正在下载', url)
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            save_images(response.content)
+        return None
+    except RequestException:
+        print('请求下载页出错', url)
+        return None
+
+#解析下载页，保存图片
+def save_images(content):
+    #定义文件名：项目路径/防止重名的名字.jpg
+    file_path = '{0}/{1}.{2}'.format(os.getcwd(),md5(content).hexdigest(),'jpg')
+    #如果此文件不存在，就可以保存了
+    if not os.path.exists(file_path):
+        with open(file_path,'wb') as f:
+            f.write(content)
+            f.close()
+
 def main():
     html = get_page_index(0, '杨颖')
     for url in parse_page_index(html):
         html = get_page_detail(url)
         if html:
             result = parse_page_detail(html, url)
-            save_to_mongo(result)
+            if result:save_to_mongo(result)
 
 if __name__ == '__main__':
     main()
