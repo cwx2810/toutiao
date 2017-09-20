@@ -2,16 +2,17 @@ import json
 from urllib.parse import urlencode
 from hashlib import md5
 import re
-
 import os
 import pymongo
 from bs4 import BeautifulSoup
 from requests.exceptions import RequestException
 import requests
 from config import *
+from multiprocessing import Pool
+from json.decoder import JSONDecodeError
 
 #声明数据库对象，传入地址、名称
-client = pymongo.MongoClient(MONGO_URL)
+client = pymongo.MongoClient(MONGO_URL, connect=False)
 db = client[MONGO_DB]
 
 #获取索引页
@@ -39,12 +40,15 @@ def get_page_index(offset, keyword):
 
 #解析索引页，通过索引页的json拿到详情页的url
 def parse_page_index(html):
-    #把json转换成对象
-    data = json.loads(html)
-    #如果json中有数据，就遍历之，取出详情页的url字段
-    if data and 'data' in data.keys():
-        for item in data.get('data'):
-            yield item.get('article_url')
+    try:
+        #把json转换成对象
+        data = json.loads(html)
+        #如果json中有数据，就遍历之，取出详情页的url字段
+        if data and 'data' in data.keys():
+            for item in data.get('data'):
+                yield item.get('article_url')
+    except JSONDecodeError:
+        pass
 
 #通过上一步的url解析详情页，拿到详情页信息
 def get_page_detail(url):
@@ -111,8 +115,8 @@ def save_images(content):
             f.write(content)
             f.close()
 
-def main():
-    html = get_page_index(0, '杨颖')
+def main(offset):
+    html = get_page_index(offset, KEYWORD)
     for url in parse_page_index(html):
         html = get_page_detail(url)
         if html:
@@ -120,5 +124,8 @@ def main():
             if result:save_to_mongo(result)
 
 if __name__ == '__main__':
-    main()
+    #下载多组图片
     groups = [x*20 for x in range(GROUP_START, GROUP_END + 1)]
+    #开启多进程
+    pool = Pool()
+    pool.map(main, groups)
